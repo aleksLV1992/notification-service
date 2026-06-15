@@ -1,102 +1,94 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\RateLimiter;
 
 use App\Services\Interfaces\CacheInterface;
 
-/**
- * Rate Limiter для защиты от перегрузки marketing очереди.
- * Ограничивает количество сообщений на получателя в час.
- */
-class RateLimiterService
+readonly class RateLimiterService
 {
-    private const MARKETING_LIMIT_PER_HOUR = 5;
-    private const CRITICAL_LIMIT_PER_MINUTE = 10;
-
     public function __construct(
-        private CacheInterface $cache,
+        private readonly CacheInterface $cache,
     ) {}
 
-    /**
-     * Проверка возможности отправки marketing сообщения.
-     */
-    public function canSendMarketing(string $recipientIdentifier): bool
+    public function exceedsMarketingLimit(string $recipientIdentifier): bool
     {
-        return $this->canSend(
+        return $this->getCount($recipientIdentifier, 'marketing') >= $this->marketingLimit();
+    }
+
+    public function recordMarketingSend(string $recipientIdentifier): void
+    {
+        $this->incrementCount(
             recipientIdentifier: $recipientIdentifier,
             priority: 'marketing',
-            limit: self::MARKETING_LIMIT_PER_HOUR,
-            ttl: 3600
+            ttl: $this->marketingWindow(),
         );
     }
 
-    /**
-     * Проверка возможности отправки critical сообщения.
-     */
     public function canSendCritical(string $recipientIdentifier): bool
     {
-        return $this->canSend(
+        return $this->getCount($recipientIdentifier, 'critical') < $this->criticalLimit();
+    }
+
+    public function recordCriticalSend(string $recipientIdentifier): void
+    {
+        $this->incrementCount(
             recipientIdentifier: $recipientIdentifier,
             priority: 'critical',
-            limit: self::CRITICAL_LIMIT_PER_MINUTE,
-            ttl: 60
+            ttl: $this->criticalWindow(),
         );
     }
 
-    /**
-     * Получить оставшееся количество сообщений для получателя.
-     */
     public function getRemainingLimit(string $recipientIdentifier, string $priority): int
     {
-        $key = $this->getRateLimitKey(
-            recipientIdentifier: $recipientIdentifier,
-            priority: $priority
-        );
-        $count = (int) $this->cache->get($key);
-
+        $count = $this->getCount($recipientIdentifier, $priority);
         $limit = $priority === 'marketing'
-            ? self::MARKETING_LIMIT_PER_HOUR
-            : self::CRITICAL_LIMIT_PER_MINUTE;
+            ? $this->marketingLimit()
+            : $this->criticalLimit();
 
         return max(0, $limit - $count);
     }
 
-    /**
-     * Общая проверка возможности отправки.
-     */
-    private function canSend(string $recipientIdentifier, string $priority, int $limit, int $ttl): bool
+    public function reset(string $recipientIdentifier, string $priority): void
     {
-        $key = $this->getRateLimitKey(
-            recipientIdentifier: $recipientIdentifier,
-            priority: $priority
-        );
-        $count = (int) $this->cache->get($key);
-
-        if ($count >= $limit) {
-            return false;
-        }
-
-        $this->cache->setex($key, $ttl, (string) ($count + 1));
-        return true;
+        $this->cache->delete($this->getRateLimitKey($recipientIdentifier, $priority));
     }
 
-    /**
-     * Ключ для rate limit.
-     */
+    private function getCount(string $recipientIdentifier, string $priority): int
+    {
+        return (int) $this->cache->get($this->getRateLimitKey($recipientIdentifier, $priority));
+    }
+
+    private function incrementCount(string $recipientIdentifier, string $priority, int $ttl): void
+    {
+        $key = $this->getRateLimitKey($recipientIdentifier, $priority);
+        $count = $this->getCount($recipientIdentifier, $priority);
+        $this->cache->setex($key, $ttl, (string) ($count + 1));
+    }
+
     private function getRateLimitKey(string $recipientIdentifier, string $priority): string
     {
         return "rate_limit:{$priority}:{$recipientIdentifier}";
     }
 
-    /**
-     * Сбросить лимит для получателя.
-     */
-    public function reset(string $recipientIdentifier, string $priority): void
+    private function marketingLimit(): int
     {
-        $key = $this->getRateLimitKey(
-            recipientIdentifier: $recipientIdentifier,
-            priority: $priority
-        );
-        $this->cache->del($key);
+        return (int) config('notification.rate_limiter.marketing_limit', 100);
+    }
+
+    private function marketingWindow(): int
+    {
+        return (int) config('notification.rate_limiter.marketing_window', 3600);
+    }
+
+    private function criticalLimit(): int
+    {
+        return (int) config('notification.rate_limiter.critical_limit', 10);
+    }
+
+    private function criticalWindow(): int
+    {
+        return (int) config('notification.rate_limiter.critical_window', 60);
     }
 }

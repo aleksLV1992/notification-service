@@ -1,19 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit\Events;
 
 use App\Enums\Status;
-use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 use Tests\Traits\CreatesNotifications;
 use Tests\Traits\InteractsWithEvents;
 
 class NotificationEventsTest extends TestCase
 {
-    use RefreshDatabase, CreatesNotifications, InteractsWithEvents;
+    use CreatesNotifications, InteractsWithEvents, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -21,7 +21,7 @@ class NotificationEventsTest extends TestCase
         $this->fakeAllEvents();
     }
 
-    public function testNotificationSentEventDispatched(): void
+    public function test_notification_sent_event_dispatched(): void
     {
         $notification = $this->createTestNotification([
             'channel' => 'sms',
@@ -43,7 +43,7 @@ class NotificationEventsTest extends TestCase
         });
     }
 
-    public function testNotificationDeliveredEventDispatched(): void
+    public function test_notification_delivered_event_dispatched(): void
     {
         $notification = $this->createTestNotification([
             'channel' => 'email',
@@ -65,7 +65,7 @@ class NotificationEventsTest extends TestCase
         });
     }
 
-    public function testNotificationFailedEventDispatched(): void
+    public function test_notification_failed_event_dispatched(): void
     {
         $notification = $this->createTestNotification([
             'channel' => 'sms',
@@ -81,7 +81,7 @@ class NotificationEventsTest extends TestCase
         ]);
 
         $errorMessage = 'Provider timeout';
-        $recipient->markAsFailed($errorMessage);
+        $recipient->markAsDropped($errorMessage);
 
         $this->assertNotificationFailed(function ($event) use ($recipient, $errorMessage) {
             return $event->recipient->id === $recipient->id
@@ -89,7 +89,7 @@ class NotificationEventsTest extends TestCase
         });
     }
 
-    public function testNotificationSentEventContainsCorrectData(): void
+    public function test_notification_sent_event_contains_correct_data(): void
     {
         $notification = $this->createTestNotification([
             'channel' => 'sms',
@@ -111,7 +111,7 @@ class NotificationEventsTest extends TestCase
         });
     }
 
-    public function testNotificationFailedEventContainsErrorMessage(): void
+    public function test_notification_failed_event_contains_error_message(): void
     {
         $notification = $this->createTestNotification([
             'channel' => 'email',
@@ -127,7 +127,7 @@ class NotificationEventsTest extends TestCase
         ]);
 
         $errorMessage = 'SMTP connection failed';
-        $recipient->markAsFailed($errorMessage);
+        $recipient->markAsDropped($errorMessage);
 
         $this->assertNotificationFailed(function ($event) use ($errorMessage) {
             return $event->errorMessage === $errorMessage;

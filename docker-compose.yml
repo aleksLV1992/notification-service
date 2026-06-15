@@ -29,9 +29,10 @@ services:
       - DB_PASSWORD=postgres
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - QUEUE_CONNECTION=redis
+      - QUEUE_CONNECTION=rabbitmq
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
+      - RABBITMQ_MANAGEMENT_PORT=15672
       - RABBITMQ_USER=guest
       - RABBITMQ_PASSWORD=guest
 
@@ -131,12 +132,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     command: php artisan queue:work --queue=critical,default,marketing --sleep=3 --tries=3 --max-time=3600
     environment:
       - DB_HOST=postgres
       - REDIS_HOST=redis
-      - QUEUE_CONNECTION=redis
+      - QUEUE_CONNECTION=rabbitmq
       - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_MANAGEMENT_PORT=15672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
 
 networks:
   notification_network:

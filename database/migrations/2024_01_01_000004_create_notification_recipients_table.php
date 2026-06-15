@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,7 +17,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('notification_id')->constrained('notifications')->onDelete('cascade');
             $table->string('recipient_identifier')->index()->comment('Email или телефон получателя');
-            $table->string('status')->default('queued')->index()->comment('queued, sent, delivered, failed');
+            $table->string('status')->default('queued')->index()->comment('queued, sent, delivered, dropped');
             $table->text('error_message')->nullable();
             $table->integer('attempts')->default(0);
             $table->timestamp('sent_at')->nullable();

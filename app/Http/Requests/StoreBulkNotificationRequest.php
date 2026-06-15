@@ -1,29 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
 use App\DTO\BulkNotificationData;
 use App\Enums\Channel;
 use App\Enums\Priority;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
 class StoreBulkNotificationRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
@@ -37,11 +30,6 @@ class StoreBulkNotificationRequest extends FormRequest
         ];
     }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array<string, string>
-     */
     public function messages(): array
     {
         return [
@@ -57,11 +45,6 @@ class StoreBulkNotificationRequest extends FormRequest
         ];
     }
 
-    /**
-     * Get custom attributes for validator errors.
-     *
-     * @return array<string, string>
-     */
     public function attributes(): array
     {
         return [
@@ -73,9 +56,6 @@ class StoreBulkNotificationRequest extends FormRequest
         ];
     }
 
-    /**
-     * Convert the validated data to a DTO.
-     */
     public function toDto(): BulkNotificationData
     {
         return new BulkNotificationData(

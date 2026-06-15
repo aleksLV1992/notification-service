@@ -8,10 +8,12 @@
     "require": {
         "php": "^8.5",
         "ext-intl": "*",
+        "ext-redis": "*",
+        "darkaonline/l5-swagger": "^11.1",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "spatie/laravel-data": "^4",
-        "ext-redis": "*"
+        "vladimir-yuldashev/laravel-queue-rabbitmq": "^15.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -53,7 +55,9 @@
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
-        ]
+        ],
+        "format": "pint",
+        "format:check": "pint --test"
     },
     "extra": {
         "laravel": {

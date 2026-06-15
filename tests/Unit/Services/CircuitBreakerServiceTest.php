@@ -7,35 +7,32 @@ namespace Tests\Unit\Services;
 use App\Exceptions\CircuitBreakerOpenException;
 use App\Services\CircuitBreakerService;
 use App\Services\Interfaces\CacheInterface;
+use App\Services\Interfaces\MetricsInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
-/**
- * @coversDefaultClass \App\Services\CircuitBreakerService
- */
 class CircuitBreakerServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private MockInterface $cache;
+
+    private MockInterface $metrics;
+
     private CircuitBreakerService $circuitBreaker;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
         $this->cache = Mockery::mock(CacheInterface::class);
-        $this->circuitBreaker = new CircuitBreakerService($this->cache);
+        $this->metrics = Mockery::mock(MetricsInterface::class);
+        $this->circuitBreaker = new CircuitBreakerService($this->cache, $this->metrics);
     }
 
-    /**
-     * @test Успешный вызов в состоянии CLOSED
-     * @covers ::call
-     * @covers ::getState
-     */
-    public function testCallSuccessInClosedState(): void
+    public function test_call_success_in_closed_state(): void
     {
         // Arrange
         $this->cache
@@ -56,12 +53,7 @@ class CircuitBreakerServiceTest extends TestCase
         $this->assertEquals('success', $result);
     }
 
-    /**
-     * @test Вызов отклоняется в состоянии OPEN
-     * @covers ::call
-     * @covers ::getState
-     */
-    public function testCallRejectedInOpenState(): void
+    public function test_call_rejected_in_open_state(): void
     {
         // Arrange
         $this->cache
@@ -74,6 +66,11 @@ class CircuitBreakerServiceTest extends TestCase
             ->with('circuit_breaker:last_failure:test_provider')
             ->andReturn((string) time());
 
+        $this->metrics
+            ->shouldReceive('incrementCircuitBreakerTriggered')
+            ->with('test_provider')
+            ->once();
+
         // Assert
         $this->expectException(CircuitBreakerOpenException::class);
 
@@ -83,12 +80,7 @@ class CircuitBreakerServiceTest extends TestCase
         });
     }
 
-    /**
-     * @test Переход в OPEN после превышения порога ошибок
-     * @covers ::call
-     * @covers ::onFailure
-     */
-    public function testTransitionToOpenAfterFailureThreshold(): void
+    public function test_transition_to_open_after_failure_threshold(): void
     {
         // Arrange - 4 ошибки (еще не порог)
         $this->cache
@@ -122,12 +114,7 @@ class CircuitBreakerServiceTest extends TestCase
         });
     }
 
-    /**
-     * @test Переход в CLOSED после успеха в HALF_OPEN
-     * @covers ::call
-     * @covers ::onSuccess
-     */
-    public function testTransitionToClosedAfterSuccessInHalfOpen(): void
+    public function test_transition_to_closed_after_success_in_half_open(): void
     {
         // Arrange
         $this->cache
@@ -161,11 +148,7 @@ class CircuitBreakerServiceTest extends TestCase
         $this->assertEquals('success', $result);
     }
 
-    /**
-     * @test Получение статистики Circuit Breaker
-     * @covers ::getStats
-     */
-    public function testGetStats(): void
+    public function test_get_stats(): void
     {
         // Arrange
         $this->cache

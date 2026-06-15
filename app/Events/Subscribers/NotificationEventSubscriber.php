@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Events\Subscribers;
 
 use App\Events\NotificationDelivered;
 use App\Events\NotificationFailed;
 use App\Events\NotificationSent;
 use App\Services\Interfaces\MetricsInterface;
+use Illuminate\Support\Facades\Log;
 
 class NotificationEventSubscriber
 {

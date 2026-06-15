@@ -252,7 +252,7 @@ class AlertOnFailure
     public function handle(NotificationFailed $event): void
     {
         try {
-            if ($event->recipient->notification->isCritical()) {
+            if ($event->recipient->notification->priority->isCritical()) {
                 $this->alertService->send(...);
             }
         } catch (\Throwable $e) {

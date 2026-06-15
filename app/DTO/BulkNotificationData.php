@@ -1,8 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\DTO;
 
-use Spatie\LaravelData\Attributes\Validation\{In, Max, Min, Uuid, Required};
+use Spatie\LaravelData\Attributes\Validation\In;
+use Spatie\LaravelData\Attributes\Validation\Max;
+use Spatie\LaravelData\Attributes\Validation\Min;
+use Spatie\LaravelData\Attributes\Validation\Required;
+use Spatie\LaravelData\Attributes\Validation\Uuid;
 use Spatie\LaravelData\Data;
 
 class BulkNotificationData extends Data

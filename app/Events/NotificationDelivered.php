@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Events;
 
 use App\Models\NotificationRecipient;
+use Carbon\Carbon;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -30,7 +33,7 @@ class NotificationDelivered
         return $this->recipient->notification->priority->value;
     }
 
-    public function getDeliveryTime(): ?\Carbon\Carbon
+    public function getDeliveryTime(): ?Carbon
     {
         return $this->recipient->delivered_at;
     }

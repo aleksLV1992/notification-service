@@ -10,37 +10,36 @@ use App\Enums\Status;
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use App\Repositories\Interfaces\NotificationRecipientRepositoryInterface;
+use App\Services\Factories\NotificationProviderFactory;
 use App\Services\Providers\NotificationProviderInterface;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
-/**
- * @coversDefaultClass \App\Actions\Notification\SendNotificationAction
- */
 class SendNotificationActionTest extends TestCase
 {
     private MockInterface $recipientRepo;
+
+    private MockInterface $providerFactory;
+
     private MockInterface $provider;
+
     private SendNotificationAction $action;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
         $this->recipientRepo = Mockery::mock(NotificationRecipientRepositoryInterface::class);
+        $this->providerFactory = Mockery::mock(NotificationProviderFactory::class);
         $this->provider = Mockery::mock(NotificationProviderInterface::class);
         $this->action = new SendNotificationAction(
             $this->recipientRepo,
-            $this->provider
+            $this->providerFactory
         );
     }
 
-    /**
-     * @test Успешная отправка уведомления
-     * @covers ::execute
-     */
-    public function testExecuteSuccess(): void
+    public function test_execute_success(): void
     {
         // Arrange
         $notification = Notification::factory()->create([
@@ -48,15 +47,30 @@ class SendNotificationActionTest extends TestCase
             'priority' => Priority::CRITICAL,
         ]);
 
-        $recipient = NotificationRecipient::factory()->create([
-            'notification_id' => $notification->id,
-            'recipient_identifier' => '+79991234567',
-            'status' => Status::QUEUED,
-        ]);
+        $recipient = NotificationRecipient::factory()
+            ->for($notification)
+            ->create([
+                'recipient_identifier' => '+79991234567',
+                'status' => Status::QUEUED,
+            ]);
+
+        $recipient->load('notification');
+
+        $this->providerFactory
+            ->shouldReceive('get')
+            ->with('sms')
+            ->twice()
+            ->andReturn($this->provider);
 
         $this->provider
             ->shouldReceive('send')
             ->with('+79991234567', 'Test message')
+            ->once()
+            ->andReturn(true);
+
+        $this->provider
+            ->shouldReceive('confirmDelivery')
+            ->with('+79991234567')
             ->once()
             ->andReturn(true);
 
@@ -74,7 +88,6 @@ class SendNotificationActionTest extends TestCase
         $result = $this->action->execute(
             $recipient,
             'Test message',
-            Priority::CRITICAL,
             $notification->id
         );
 
@@ -82,11 +95,7 @@ class SendNotificationActionTest extends TestCase
         $this->assertTrue($result);
     }
 
-    /**
-     * @test Неудачная отправка уведомления
-     * @covers ::execute
-     */
-    public function testExecuteFailure(): void
+    public function test_execute_failure(): void
     {
         // Arrange
         $notification = Notification::factory()->create([
@@ -94,11 +103,20 @@ class SendNotificationActionTest extends TestCase
             'priority' => Priority::NORMAL,
         ]);
 
-        $recipient = NotificationRecipient::factory()->create([
-            'notification_id' => $notification->id,
-            'recipient_identifier' => '+79991234567',
-            'status' => Status::QUEUED,
-        ]);
+        $recipient = NotificationRecipient::factory()
+            ->for($notification)
+            ->create([
+                'recipient_identifier' => '+79991234567',
+                'status' => Status::QUEUED,
+            ]);
+
+        $recipient->load('notification');
+
+        $this->providerFactory
+            ->shouldReceive('get')
+            ->with('sms')
+            ->once()
+            ->andReturn($this->provider);
 
         $this->provider
             ->shouldReceive('send')
@@ -107,15 +125,12 @@ class SendNotificationActionTest extends TestCase
             ->andReturn(false);
 
         $this->recipientRepo
-            ->shouldReceive('markAsSent')
-            ->with($recipient->id)
-            ->once();
+            ->shouldNotReceive('markAsSent');
 
         // Act
         $result = $this->action->execute(
             $recipient,
             'Test message',
-            Priority::NORMAL,
             $notification->id
         );
 
@@ -123,11 +138,7 @@ class SendNotificationActionTest extends TestCase
         $this->assertFalse($result);
     }
 
-    /**
-     * @test Обработка неудачи отправки
-     * @covers ::handleFailure
-     */
-    public function testHandleFailure(): void
+    public function test_handle_failure(): void
     {
         // Arrange
         $notification = Notification::factory()->create();
@@ -137,7 +148,7 @@ class SendNotificationActionTest extends TestCase
         ]);
 
         $this->recipientRepo
-            ->shouldReceive('markAsFailed')
+            ->shouldReceive('markAsDropped')
             ->with($recipient->id, 'Connection timeout')
             ->once();
 

@@ -1,32 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Enums\Channel;
 use App\Enums\Priority;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-/**
- * @property string $id
- * @property string $idempotency_key
- * @property Channel $channel
- * @property string $message
- * @property string|null $batch_id
- * @property Priority $priority
- * @property array|null $metadata
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
- * @property-read Collection<int, NotificationRecipient> $recipients
- */
 class Notification extends Model
 {
     use HasFactory;
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $fillable = [
@@ -61,16 +51,6 @@ class Notification extends Model
     public function recipients(): HasMany
     {
         return $this->hasMany(NotificationRecipient::class);
-    }
-
-    public function isCritical(): bool
-    {
-        return $this->priority === Priority::CRITICAL;
-    }
-
-    public function isMarketing(): bool
-    {
-        return $this->priority === Priority::MARKETING;
     }
 
     public function getQueueName(): string

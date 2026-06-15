@@ -1,14 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Redis;
 
 use App\Services\Interfaces\CacheInterface;
 use App\Services\Interfaces\RedisClientInterface;
 
-/**
- * Кэш сервис на основе Redis.
- * Использует DI через RedisClientInterface.
- */
 class RedisCacheService implements CacheInterface
 {
     public function __construct(
@@ -29,6 +27,7 @@ class RedisCacheService implements CacheInterface
                 value: $value,
             );
         }
+
         return $this->redis->set(
             key: $key,
             value: $value,
@@ -52,5 +51,10 @@ class RedisCacheService implements CacheInterface
     public function delete(string $key): bool
     {
         return $this->redis->del($key) > 0;
+    }
+
+    public function setIfNotExists(string $key, mixed $value, int $ttl): bool
+    {
+        return $this->redis->setIfNotExists($key, $value, $ttl);
     }
 }

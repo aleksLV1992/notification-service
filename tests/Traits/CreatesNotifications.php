@@ -1,19 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Traits;
 
 use App\Models\Notification;
 use App\Models\NotificationRecipient;
 use Illuminate\Support\Str;
 
-/**
- * Trait для создания тестовых уведомлений
- */
 trait CreatesNotifications
 {
-    /**
-     * Создать тестовое уведомление
-     */
     protected function createTestNotification(array $attributes = []): Notification
     {
         return Notification::factory()->create(array_merge([
@@ -23,11 +19,6 @@ trait CreatesNotifications
         ], $attributes));
     }
 
-    /**
-     * Создать уведомление с получателями
-     *
-     * @param string[] $recipients
-     */
     protected function createNotificationWithRecipients(
         array $notificationAttributes = [],
         array $recipients = ['+79991234567']
@@ -44,9 +35,6 @@ trait CreatesNotifications
         return $notification->fresh();
     }
 
-    /**
-     * Создать критическое уведомление
-     */
     protected function createCriticalNotification(array $attributes = []): Notification
     {
         return $this->createTestNotification(array_merge([
@@ -55,9 +43,6 @@ trait CreatesNotifications
         ], $attributes));
     }
 
-    /**
-     * Создать маркетинговое уведомление
-     */
     protected function createMarketingNotification(array $attributes = []): Notification
     {
         return $this->createTestNotification(array_merge([
@@ -66,9 +51,6 @@ trait CreatesNotifications
         ], $attributes));
     }
 
-    /**
-     * Создать UUID
-     */
     protected function uuid(): string
     {
         return Str::uuid()->toString();

@@ -5,32 +5,33 @@ declare(strict_types=1);
 namespace Tests\Unit\Services;
 
 use App\DTO\BulkNotificationData;
-use App\DTO\NotificationResult;
-use App\Enums\Priority;
+use App\Models\Notification;
 use App\Repositories\Interfaces\NotificationRecipientRepositoryInterface;
 use App\Repositories\Interfaces\NotificationRepositoryInterface;
-use App\Services\Factories\NotificationProviderFactory;
-use App\Services\Interfaces\CacheInterface;
-use App\Services\Metrics\MetricsService;
+use App\Services\Interfaces\MetricsInterface;
 use App\Services\NotificationService;
 use App\Services\RateLimiter\DeduplicationService;
 use App\Services\RateLimiter\RateLimiterService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Mockery;
+use Tests\Support\ArrayCacheService;
 use Tests\TestCase;
 
-/**
- * @coversDefaultClass \App\Services\NotificationService
- */
 class NotificationServiceTest extends TestCase
 {
     private $notificationRepo;
+
     private $recipientRepo;
-    private $cache;
+
+    private ArrayCacheService $cache;
+
     private DeduplicationService $deduplicationService;
-    private $providerFactory;
-    private $rateLimiter;
+
+    private RateLimiterService $rateLimiter;
+
     private $metrics;
+
     private NotificationService $service;
 
     protected function setUp(): void
@@ -39,36 +40,31 @@ class NotificationServiceTest extends TestCase
 
         $this->notificationRepo = Mockery::mock(NotificationRepositoryInterface::class);
         $this->recipientRepo = Mockery::mock(NotificationRecipientRepositoryInterface::class);
-        $this->cache = Mockery::mock(CacheInterface::class);
+        $this->cache = new ArrayCacheService;
         $this->deduplicationService = new DeduplicationService($this->cache);
-        $this->providerFactory = Mockery::mock(NotificationProviderFactory::class);
-        $this->rateLimiter = Mockery::mock(RateLimiterService::class);
-        $this->metrics = Mockery::mock(MetricsService::class);
+        $this->rateLimiter = new RateLimiterService($this->cache);
+        $this->metrics = Mockery::mock(MetricsInterface::class);
 
         $this->service = new NotificationService(
             $this->notificationRepo,
             $this->recipientRepo,
             $this->deduplicationService,
-            $this->providerFactory,
             $this->rateLimiter,
-            $this->metrics
+            $this->metrics,
         );
     }
 
-    /**
-     * @test Создание массового уведомления
-     */
-    public function testSendBulkNotificationCreatesNotification(): void
+    public function test_send_bulk_notification_creates_notification(): void
     {
         $data = new BulkNotificationData(
             channel: 'sms',
             message: 'Тест',
             recipients: ['+79991234567'],
             priority: 'normal',
-            idempotency_key: Str::uuid()->toString()
+            idempotency_key: Str::uuid()->toString(),
         );
 
-        $notification = Mockery::mock(\App\Models\Notification::class)->makePartial();
+        $notification = Mockery::mock(Notification::class)->makePartial();
         $notification->id = Str::uuid()->toString();
         $notification->channel = 'sms';
         $notification->priority = 'normal';
@@ -76,12 +72,8 @@ class NotificationServiceTest extends TestCase
         $notification->recipients = collect([]);
         $notification->shouldReceive('getQueueName')->andReturn('default');
 
-        $this->cache->shouldReceive('exists')->andReturn(0);
-        $this->cache->shouldReceive('setex')->andReturn(true);
+        $this->notificationRepo->shouldReceive('findByIdempotencyKey')->andReturn(null);
         $this->notificationRepo->shouldReceive('createWithRecipients')->andReturn($notification);
-        $this->recipientRepo->shouldReceive('countByNotificationId')->andReturn(1);
-        $this->rateLimiter->shouldReceive('canSendMarketing')->andReturn(true);
-        $this->metrics->shouldReceive('incrementNotificationSent')->once();
 
         $result = $this->service->sendBulkNotification($data);
 
@@ -89,25 +81,20 @@ class NotificationServiceTest extends TestCase
         $this->assertFalse($result->isRateLimitExceeded);
     }
 
-    /**
-     * @test Дубликат уведомления
-     */
-    public function testSendBulkNotificationReturnsExistingForDuplicate(): void
+    public function test_send_bulk_notification_returns_existing_for_duplicate(): void
     {
         $data = new BulkNotificationData(
             channel: 'sms',
             message: 'Тест',
             recipients: ['+79991234567'],
             priority: 'normal',
-            idempotency_key: 'dup-key'
+            idempotency_key: 'dup-key',
         );
 
-        $notification = Mockery::mock(\App\Models\Notification::class)->makePartial();
+        $notification = Mockery::mock(Notification::class)->makePartial();
         $notification->id = 'existing-id';
 
-        $this->cache->shouldReceive('exists')->andReturn(1);
-        $this->cache->shouldReceive('get')->andReturn('existing-id');
-        $this->notificationRepo->shouldReceive('findById')->with('existing-id')->andReturn($notification);
+        $this->notificationRepo->shouldReceive('findByIdempotencyKey')->with('dup-key')->andReturn($notification);
         $this->metrics->shouldReceive('incrementDuplicateDetected')->once();
 
         $result = $this->service->sendBulkNotification($data);
@@ -115,22 +102,20 @@ class NotificationServiceTest extends TestCase
         $this->assertTrue($result->isDuplicate);
     }
 
-    /**
-     * @test Rate limit exceeded
-     */
-    public function testSendBulkNotificationFailsOnRateLimitExceeded(): void
+    public function test_send_bulk_notification_fails_on_rate_limit_exceeded(): void
     {
+        config(['notification.rate_limiter.marketing_limit' => 1]);
+
         $data = new BulkNotificationData(
             channel: 'sms',
             message: 'Marketing',
             recipients: ['+79991234567'],
             priority: 'marketing',
-            idempotency_key: Str::uuid()->toString()
+            idempotency_key: Str::uuid()->toString(),
         );
 
-        $this->cache->shouldReceive('exists')->andReturn(0);
-        $this->cache->shouldReceive('setex')->andReturn(true);
-        $this->rateLimiter->shouldReceive('canSendMarketing')->andReturn(false);
+        $this->notificationRepo->shouldReceive('findByIdempotencyKey')->andReturn(null);
+        $this->rateLimiter->recordMarketingSend('+79991234567');
         $this->metrics->shouldReceive('incrementRateLimitExceeded')->once();
 
         $result = $this->service->sendBulkNotification($data);
@@ -138,13 +123,10 @@ class NotificationServiceTest extends TestCase
         $this->assertTrue($result->isRateLimitExceeded);
     }
 
-    /**
-     * @test Получение статуса
-     */
-    public function testGetNotificationStatusReturnsNullForNonexistent(): void
+    public function test_get_notification_status_returns_null_for_nonexistent(): void
     {
-        $this->notificationRepo
-            ->shouldReceive('getRecipientStatus')
+        $this->recipientRepo
+            ->shouldReceive('getStatusForRecipient')
             ->andReturn(null);
 
         $result = $this->service->getNotificationStatus('id', 'recipient');
@@ -152,16 +134,13 @@ class NotificationServiceTest extends TestCase
         $this->assertNull($result);
     }
 
-    /**
-     * @test Получение истории
-     */
-    public function testGetRecipientHistory(): void
+    public function test_get_recipient_history(): void
     {
-        $paginator = Mockery::mock(\Illuminate\Contracts\Pagination\LengthAwarePaginator::class);
+        $paginator = Mockery::mock(LengthAwarePaginator::class);
         $paginator->shouldReceive('toArray')->andReturn(['data' => []]);
 
-        $this->notificationRepo
-            ->shouldReceive('findRecipientHistory')
+        $this->recipientRepo
+            ->shouldReceive('findHistoryByRecipient')
             ->andReturn($paginator);
 
         $result = $this->service->getRecipientHistory('+79991234567', 10);

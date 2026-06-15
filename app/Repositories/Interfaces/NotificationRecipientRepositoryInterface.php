@@ -1,49 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repositories\Interfaces;
 
+use App\DTO\RecipientStatusData;
 use App\Models\NotificationRecipient;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 interface NotificationRecipientRepositoryInterface
 {
-    /**
-     * Найти получателя по ID с уведомлением.
-     */
     public function findByIdWithNotification(string $id): ?NotificationRecipient;
 
-    /**
-     * Найти получателя по ID.
-     */
     public function findById(string $id): ?NotificationRecipient;
 
-    /**
-     * Массовая вставка получателей.
-     */
     public function bulkInsert(array $recipients, string $notificationId): void;
 
-    /**
-     * Получить всех получателей уведомления.
-     */
     public function findByNotificationId(string $notificationId): Collection;
 
-    /**
-     * Получить количество получателей уведомления.
-     */
     public function countByNotificationId(string $notificationId): int;
 
-    /**
-     * Отметить как отправлено.
-     */
     public function markAsSent(string $id): void;
 
-    /**
-     * Отметить как доставлено.
-     */
     public function markAsDelivered(string $id): void;
 
-    /**
-     * Отметить как failed.
-     */
-    public function markAsFailed(string $id, string $errorMessage): void;
+    public function markAsDropped(string $id, string $errorMessage): void;
+
+    public function incrementAttempts(string $id): void;
+
+    public function isFinalized(string $id): bool;
+
+    public function findHistoryByRecipient(
+        string $recipientIdentifier,
+        ?int $limit = null,
+        ?int $offset = null
+    ): LengthAwarePaginator;
+
+    public function getStatusForRecipient(
+        string $notificationId,
+        string $recipientIdentifier
+    ): ?RecipientStatusData;
 }

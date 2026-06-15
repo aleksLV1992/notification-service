@@ -1,11 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repositories\Interfaces;
 
 use App\DTO\BulkNotificationData;
-use App\DTO\RecipientStatusData;
 use App\Models\Notification;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface NotificationRepositoryInterface
 {
@@ -18,12 +18,4 @@ interface NotificationRepositoryInterface
     public function findByIdempotencyKey(string $key): ?Notification;
 
     public function findByBatchId(string $batchId): array;
-
-    public function findRecipientHistory(
-        string $recipientIdentifier,
-        ?int $limit = null,
-        ?int $offset = null
-    ): LengthAwarePaginator;
-
-    public function getRecipientStatus(string $notificationId, string $recipientIdentifier): ?RecipientStatusData;
 }

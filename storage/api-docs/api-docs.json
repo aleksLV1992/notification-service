@@ -2,17 +2,115 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Notification Service API",
-        "description": "Микросервис уведомлений - массовая рассылка SMS и Email",
+        "description": "Микросервис массовых уведомлений (SMS, Email) с приоритизацией и гарантией доставки.\n\n**Статусы доставки:** `queued` → `sent` → `delivered` / `dropped`\n\n**Приоритеты:** `critical` (наивысший), `normal`, `marketing`",
         "version": "1.0.0"
     },
+    "servers": [
+        {
+            "url": "http://localhost:8081/api",
+            "description": "Local Docker"
+        }
+    ],
     "paths": {
-        "/api/v1/notifications/bulk": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Проверка всех сервисов",
+                "operationId": "healthCheck",
+                "responses": {
+                    "200": {
+                        "description": "Все сервисы healthy"
+                    },
+                    "503": {
+                        "description": "Один или более сервисов unhealthy"
+                    }
+                }
+            }
+        },
+        "/health/database": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Проверка PostgreSQL",
+                "operationId": "healthDatabase",
+                "responses": {
+                    "200": {
+                        "description": "Healthy"
+                    },
+                    "503": {
+                        "description": "Unhealthy"
+                    }
+                }
+            }
+        },
+        "/health/redis": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Проверка Redis",
+                "operationId": "healthRedis",
+                "responses": {
+                    "200": {
+                        "description": "Healthy"
+                    },
+                    "503": {
+                        "description": "Unhealthy"
+                    }
+                }
+            }
+        },
+        "/health/rabbitmq": {
+            "get": {
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Проверка RabbitMQ",
+                "operationId": "healthRabbitmq",
+                "responses": {
+                    "200": {
+                        "description": "Healthy"
+                    },
+                    "503": {
+                        "description": "Unhealthy"
+                    }
+                }
+            }
+        },
+        "/metrics": {
+            "get": {
+                "tags": [
+                    "Metrics"
+                ],
+                "summary": "Prometheus метрики",
+                "description": "Экспорт счётчиков в формате Prometheus text exposition.",
+                "operationId": "getMetrics",
+                "responses": {
+                    "200": {
+                        "description": "Метрики в формате Prometheus",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string",
+                                    "example": "# HELP notifications_sent_total Counter metric\n# TYPE notifications_sent_total counter\nnotifications_sent_total{channel=\"sms\",priority=\"critical\"} 3\n"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/notifications/bulk": {
             "post": {
                 "tags": [
                     "Notifications"
                 ],
                 "summary": "Массовая рассылка уведомлений",
-                "operationId": "7cf60c2f69ec42ab4ed578f933509824",
+                "description": "Запуск массовой отправки SMS или Email. Поддерживает idempotency_key для защиты от дубликатов.",
+                "operationId": "bulkNotifications",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -26,11 +124,11 @@
                                 "properties": {
                                     "channel": {
                                         "type": "string",
+                                        "example": "sms",
                                         "enum": [
                                             "sms",
                                             "email"
-                                        ],
-                                        "example": "sms"
+                                        ]
                                     },
                                     "message": {
                                         "type": "string",
@@ -48,15 +146,16 @@
                                     },
                                     "priority": {
                                         "type": "string",
+                                        "example": "critical",
                                         "enum": [
                                             "critical",
                                             "normal",
                                             "marketing"
-                                        ],
-                                        "example": "critical"
+                                        ]
                                     },
                                     "idempotency_key": {
                                         "type": "string",
+                                        "format": "uuid",
                                         "example": "550e8400-e29b-41d4-a716-446655440000"
                                     },
                                     "metadata": {
@@ -73,36 +172,37 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Успешное создание рассылки",
+                        "description": "Рассылка создана",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "id": {
-                                            "type": "string",
-                                            "example": "550e8400-e29b-41d4-a716-446655440001"
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "channel": {
+                                                    "type": "string"
+                                                },
+                                                "priority": {
+                                                    "type": "string"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
                                         },
-                                        "idempotency_key": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "batch_id": {
-                                            "type": "string"
-                                        },
-                                        "priority": {
-                                            "type": "string"
-                                        },
-                                        "recipients_count": {
-                                            "type": "integer"
-                                        },
-                                        "created_at": {
-                                            "type": "string",
-                                            "format": "date-time"
+                                        "meta": {
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "created"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -110,22 +210,83 @@
                             }
                         }
                     },
-                    "400": {
-                        "description": "Некорректный запрос"
+                    "422": {
+                        "description": "Ошибка валидации"
                     },
                     "409": {
-                        "description": "Дубликат запроса (idempotency)"
+                        "description": "Дубликат запроса (idempotency)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "notification_id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "nullable": true
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "duplicate",
+                                                        "processing"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Превышен rate limit (marketing)"
                     }
                 }
             }
         },
-        "/api/v1/notifications/{notificationId}/recipients/{recipientIdentifier}": {
+        "/v1/notifications/{id}": {
             "get": {
                 "tags": [
                     "Notifications"
                 ],
-                "summary": "Получить статус уведомления для конкретного получателя",
-                "operationId": "c92b58049e7c684c4a1a979ce3430a5b",
+                "summary": "Получить уведомление по ID",
+                "operationId": "getNotification",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Информация об уведомлении"
+                    },
+                    "404": {
+                        "description": "Не найдено"
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notificationId}/recipients/{recipientIdentifier}": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Статус доставки для получателя",
+                "description": "Текущий статус: queued, sent, delivered, dropped",
+                "operationId": "getRecipientStatus",
                 "parameters": [
                     {
                         "name": "notificationId",
@@ -141,19 +302,21 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "+79991234567"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Статус уведомления",
+                        "description": "Статус получателя",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "notification_id": {
-                                            "type": "string"
+                                            "type": "string",
+                                            "format": "uuid"
                                         },
                                         "recipient_identifier": {
                                             "type": "string"
@@ -173,21 +336,32 @@
                                                 "queued",
                                                 "sent",
                                                 "delivered",
-                                                "failed"
+                                                "dropped"
                                             ]
+                                        },
+                                        "error_message": {
+                                            "type": "string",
+                                            "nullable": true
                                         },
                                         "attempts": {
                                             "type": "integer"
                                         },
                                         "sent_at": {
                                             "type": "string",
-                                            "format": "date-time"
+                                            "format": "date-time",
+                                            "nullable": true
                                         },
                                         "delivered_at": {
                                             "type": "string",
-                                            "format": "date-time"
+                                            "format": "date-time",
+                                            "nullable": true
                                         },
                                         "failed_at": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "nullable": true
+                                        },
+                                        "created_at": {
                                             "type": "string",
                                             "format": "date-time"
                                         }
@@ -198,25 +372,26 @@
                         }
                     },
                     "404": {
-                        "description": "Уведомление или получатель не найдены"
+                        "description": "Не найдено"
                     }
                 }
             }
         },
-        "/api/v1/recipients/{recipientIdentifier}/history": {
+        "/v1/recipients/{recipientIdentifier}/history": {
             "get": {
                 "tags": [
                     "Notifications"
                 ],
-                "summary": "История уведомлений для получателя",
-                "operationId": "0c5174ba92b98d18761f8944820a4887",
+                "summary": "История уведомлений получателя",
+                "operationId": "getRecipientHistory",
                 "parameters": [
                     {
                         "name": "recipientIdentifier",
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "user@example.com"
                         }
                     },
                     {
@@ -246,33 +421,6 @@
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "notification_id": {
-                                                        "type": "string"
-                                                    },
-                                                    "recipient_identifier": {
-                                                        "type": "string"
-                                                    },
-                                                    "status": {
-                                                        "type": "string"
-                                                    },
-                                                    "channel": {
-                                                        "type": "string"
-                                                    },
-                                                    "message": {
-                                                        "type": "string"
-                                                    },
-                                                    "priority": {
-                                                        "type": "string"
-                                                    },
-                                                    "created_at": {
-                                                        "type": "string",
-                                                        "format": "date-time"
-                                                    }
-                                                },
                                                 "type": "object"
                                             }
                                         },
@@ -293,101 +441,20 @@
                     }
                 }
             }
-        },
-        "/api/v1/notifications/{id}": {
-            "get": {
-                "tags": [
-                    "Notifications"
-                ],
-                "summary": "Получить уведомление по ID",
-                "operationId": "cd4bb0688f801e90722c08648786928b",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Информация об уведомлении",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "idempotency_key": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "batch_id": {
-                                            "type": "string"
-                                        },
-                                        "priority": {
-                                            "type": "string"
-                                        },
-                                        "recipients": {
-                                            "type": "array",
-                                            "items": {
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "recipient_identifier": {
-                                                        "type": "string"
-                                                    },
-                                                    "status": {
-                                                        "type": "string"
-                                                    },
-                                                    "attempts": {
-                                                        "type": "integer"
-                                                    }
-                                                },
-                                                "type": "object"
-                                            }
-                                        },
-                                        "created_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Уведомление не найдено"
-                    }
-                }
-            }
         }
     },
     "tags": [
         {
             "name": "Notifications",
-            "description": "Notifications"
+            "description": "Массовая рассылка и статусы доставки"
+        },
+        {
+            "name": "Health",
+            "description": "Проверка состояния сервисов"
+        },
+        {
+            "name": "Metrics",
+            "description": "Prometheus метрики"
         }
-    ],
-    "components": {
-        "securitySchemes": {
-            "sanctum": {
-                "type": "apiKey",
-                "description": "Enter token in format (Bearer <token>)",
-                "name": "Authorization",
-                "in": "header"
-            }
-        }
-    }
+    ]
 }

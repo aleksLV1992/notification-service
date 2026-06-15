@@ -1,14 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Redis;
 
 use App\Services\Interfaces\RedisClientInterface;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Redis реализация интерфейса RedisClientInterface.
- * Использует PHP Redis extension вместо фасада Laravel.
- */
 class RedisClientService implements RedisClientInterface
 {
     public function __construct(
@@ -19,6 +17,7 @@ class RedisClientService implements RedisClientInterface
     {
         try {
             $result = $this->redis->get($key);
+
             return $result ?: null;
         } catch (\RedisException $e) {
             Log::error('Redis GET failed', [
@@ -75,6 +74,19 @@ class RedisClientService implements RedisClientInterface
             return $this->redis->del($key);
         } catch (\RedisException $e) {
             Log::error('Redis DEL failed', [
+                'key' => $key,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    public function setIfNotExists(string $key, mixed $value, int $ttl): bool
+    {
+        try {
+            return (bool) $this->redis->set($key, (string) $value, ['nx', 'ex' => $ttl]);
+        } catch (\RedisException $e) {
+            Log::error('Redis SET NX failed', [
                 'key' => $key,
                 'error' => $e->getMessage(),
             ]);

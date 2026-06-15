@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Enums;
 
 enum Status: string
@@ -7,7 +9,7 @@ enum Status: string
     case QUEUED = 'queued';
     case SENT = 'sent';
     case DELIVERED = 'delivered';
-    case FAILED = 'failed';
+    case DROPPED = 'dropped';
 
     public function isQueued(): bool
     {
@@ -24,8 +26,8 @@ enum Status: string
         return $this === self::DELIVERED;
     }
 
-    public function isFailed(): bool
+    public function isDropped(): bool
     {
-        return $this === self::FAILED;
+        return $this === self::DROPPED;
     }
 }

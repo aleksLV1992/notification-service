@@ -1,36 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Enums\Status;
 use App\Events\NotificationDelivered;
 use App\Events\NotificationFailed;
 use App\Events\NotificationSent;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/**
- * @property string $id
- * @property string $notification_id
- * @property string $recipient_identifier
- * @property Status $status
- * @property string|null $error_message
- * @property int $attempts
- * @property \Carbon\Carbon|null $sent_at
- * @property \Carbon\Carbon|null $delivered_at
- * @property \Carbon\Carbon|null $failed_at
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
- * @property-read Notification $notification
- */
 class NotificationRecipient extends Model
 {
     use HasFactory;
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $fillable = [
@@ -85,9 +73,9 @@ class NotificationRecipient extends Model
         return $this->status === Status::DELIVERED;
     }
 
-    public function isFailed(): bool
+    public function isDropped(): bool
     {
-        return $this->status === Status::FAILED;
+        return $this->status === Status::DROPPED;
     }
 
     public function markAsSent(): void
@@ -110,10 +98,10 @@ class NotificationRecipient extends Model
         event(new NotificationDelivered($this));
     }
 
-    public function markAsFailed(string $errorMessage): void
+    public function markAsDropped(string $errorMessage): void
     {
         $this->update([
-            'status' => Status::FAILED,
+            'status' => Status::DROPPED,
             'error_message' => $errorMessage,
             'failed_at' => now(),
         ]);

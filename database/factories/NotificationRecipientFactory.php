@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Enums\Status;
@@ -49,7 +51,7 @@ class NotificationRecipientFactory extends Factory
     public function failed(string $errorMessage = 'Test error'): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => Status::FAILED,
+            'status' => Status::DROPPED,
             'error_message' => $errorMessage,
             'failed_at' => now(),
         ]);

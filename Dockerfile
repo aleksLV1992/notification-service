@@ -43,8 +43,14 @@ RUN mkdir -p /home/appuser/.composer && \
 # Установка рабочей директории
 WORKDIR /var/www/html
 
+# Копирование зависимостей и установка пакетов
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev
+
 # Копирование файлов проекта
 COPY --chown=appuser:www-data . /var/www/html
+
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
 # Настройка прав для Laravel
 RUN mkdir -p storage/app/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache && \

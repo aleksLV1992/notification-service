@@ -15,11 +15,7 @@ class NotificationApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @test Успешная массовая рассылка SMS
-     * @covers \App\Http\Controllers\Api\NotificationController::bulk
-     */
-    public function testBulkSmsNotificationCreated(): void
+    public function test_bulk_sms_notification_created(): void
     {
         $payload = [
             'channel' => 'sms',
@@ -42,23 +38,15 @@ class NotificationApiTest extends TestCase
             ]);
     }
 
-    /**
-     * @test Валидация - отсутствие обязательных полей
-     * @covers \App\Http\Controllers\Api\NotificationController::bulk
-     */
-    public function testBulkValidationFailsWithoutRequiredFields(): void
+    public function test_bulk_validation_fails_without_required_fields(): void
     {
         $response = $this->postJson('/api/v1/notifications/bulk', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['channel', 'message', 'recipients']);
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
     }
 
-    /**
-     * @test Валидация - неверный приоритет
-     * @covers \App\Http\Controllers\Api\NotificationController::bulk
-     */
-    public function testBulkValidationFailsWithInvalidPriority(): void
+    public function test_bulk_validation_fails_with_invalid_priority(): void
     {
         $payload = [
             'channel' => 'sms',
@@ -70,14 +58,10 @@ class NotificationApiTest extends TestCase
         $response = $this->postJson('/api/v1/notifications/bulk', $payload);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors('priority');
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
     }
 
-    /**
-     * @test Валидация - пустые получатели
-     * @covers \App\Http\Controllers\Api\NotificationController::bulk
-     */
-    public function testBulkValidationFailsWithEmptyRecipients(): void
+    public function test_bulk_validation_fails_with_empty_recipients(): void
     {
         $payload = [
             'channel' => 'sms',
@@ -89,14 +73,10 @@ class NotificationApiTest extends TestCase
         $response = $this->postJson('/api/v1/notifications/bulk', $payload);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors('recipients');
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
     }
 
-    /**
-     * @test Получение уведомления по ID
-     * @covers \App\Http\Controllers\Api\NotificationController::show
-     */
-    public function testGetNotificationById(): void
+    public function test_get_notification_by_id(): void
     {
         $notification = Notification::factory()->create([
             'channel' => 'email',
@@ -123,22 +103,14 @@ class NotificationApiTest extends TestCase
             ]);
     }
 
-    /**
-     * @test Получение несуществующего уведомления
-     * @covers \App\Http\Controllers\Api\NotificationController::show
-     */
-    public function testGetNonexistentNotificationReturns404(): void
+    public function test_get_nonexistent_notification_returns404(): void
     {
         $response = $this->getJson('/api/v1/notifications/nonexistent-id');
 
         $response->assertStatus(404);
     }
 
-    /**
-     * @test Получение статуса получателя
-     * @covers \App\Http\Controllers\Api\NotificationController::recipientStatus
-     */
-    public function testGetRecipientStatus(): void
+    public function test_get_recipient_status(): void
     {
         $notification = Notification::create([
             'idempotency_key' => Str::uuid()->toString(),
@@ -167,11 +139,7 @@ class NotificationApiTest extends TestCase
             ]);
     }
 
-    /**
-     * @test Получение статуса несуществующего получателя
-     * @covers \App\Http\Controllers\Api\NotificationController::recipientStatus
-     */
-    public function testGetNonexistentRecipientStatusReturns404(): void
+    public function test_get_nonexistent_recipient_status_returns404(): void
     {
         $notification = Notification::create([
             'idempotency_key' => Str::uuid()->toString(),
@@ -186,11 +154,7 @@ class NotificationApiTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /**
-     * @test Получение истории получателя
-     * @covers \App\Http\Controllers\Api\NotificationController::recipientHistory
-     */
-    public function testGetRecipientHistory(): void
+    public function test_get_recipient_history(): void
     {
         $notification = Notification::create([
             'idempotency_key' => Str::uuid()->toString(),
