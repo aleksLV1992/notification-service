@@ -9,16 +9,10 @@ use OpenApi\Attributes as OA;
 #[OA\Info(
     version: '1.0.0',
     title: 'Notification Service API',
-    description: <<<'DESC'
-Микросервис массовых уведомлений (SMS, Email) с приоритизацией и гарантией доставки.
-
-**Статусы доставки:** `queued` → `sent` → `delivered` / `dropped`
-
-**Приоритеты:** `critical` (наивысший), `normal`, `marketing`
-DESC
+    description: 'Bulk SMS and Email notifications API.'
 )]
-#[OA\Server(url: 'http://localhost:8081/api', description: 'Local Docker')]
-#[OA\Tag(name: 'Notifications', description: 'Массовая рассылка и статусы доставки')]
-#[OA\Tag(name: 'Health', description: 'Проверка состояния сервисов')]
-#[OA\Tag(name: 'Metrics', description: 'Prometheus метрики')]
+#[OA\Server(url: 'http://localhost:8081/api', description: 'Local')]
+#[OA\Tag(name: 'Notifications')]
+#[OA\Tag(name: 'Health')]
+#[OA\Tag(name: 'Metrics')]
 class ApiDocumentation {}

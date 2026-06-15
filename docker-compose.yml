@@ -1,5 +1,4 @@
 services:
-  # PHP-FPM приложение
   app:
     build:
       context: .
@@ -36,7 +35,6 @@ services:
       - RABBITMQ_USER=guest
       - RABBITMQ_PASSWORD=guest
 
-  # Nginx веб-сервер
   nginx:
     image: nginx:alpine
     container_name: notification_nginx
@@ -51,7 +49,6 @@ services:
     depends_on:
       - app
 
-  # PostgreSQL база данных
   postgres:
     image: postgres:17-alpine
     container_name: notification_postgres
@@ -72,7 +69,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis для кэша и дедубликации
   redis:
     image: redis:7-alpine
     container_name: notification_redis
@@ -89,14 +85,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # RabbitMQ брокер сообщений
   rabbitmq:
     image: rabbitmq:4-management-alpine
     container_name: notification_rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"   # AMQP порт
-      - "15672:15672" # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -110,7 +105,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # Worker для обработки очередей
   worker:
     build:
       context: .

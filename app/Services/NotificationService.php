@@ -43,10 +43,7 @@ class NotificationService
             }
 
             if (! $this->deduplicationService->tryReserve($data->idempotency_key)) {
-                return $this->resolveInFlightDuplicate(
-                    idempotencyKey: $data->idempotency_key,
-                    channel: $data->channel,
-                );
+                return $this->handleConcurrentRequest($data->idempotency_key, $data->channel);
             }
 
             $reservedKey = $data->idempotency_key;
@@ -122,10 +119,10 @@ class NotificationService
             return null;
         }
 
-        return $this->resolveInFlightDuplicate($idempotencyKey, $channel);
+        return $this->handleConcurrentRequest($idempotencyKey, $channel);
     }
 
-    private function resolveInFlightDuplicate(string $idempotencyKey, string $channel): NotificationResult
+    private function handleConcurrentRequest(string $idempotencyKey, string $channel): NotificationResult
     {
         $existingNotificationId = $this->deduplicationService->getNotificationId($idempotencyKey);
         if ($existingNotificationId) {

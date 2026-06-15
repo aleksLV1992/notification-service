@@ -20,7 +20,7 @@ class RabbitMqIntegrationTest extends TestCase
     protected function setUp(): void
     {
         if (! filter_var(env('RABBITMQ_INTEGRATION_TESTS', false), FILTER_VALIDATE_BOOL)) {
-            $this->markTestSkipped('Set RABBITMQ_INTEGRATION_TESTS=true to run RabbitMQ E2E tests.');
+            $this->markTestSkipped('RabbitMQ integration tests are disabled.');
         }
 
         parent::setUp();
